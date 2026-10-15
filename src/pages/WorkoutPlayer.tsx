@@ -27,6 +27,8 @@ export function WorkoutPlayer() {
   const [left, setLeft] = useState(0);
   const [reps, setReps] = useState(10);
   const [weight, setWeight] = useState(0);
+  const [workLeft, setWorkLeft] = useState<number | null>(null);
+  const [workRunning, setWorkRunning] = useState(false);
 
   const item = active && active.itemIndex < items.length ? items[active.itemIndex] : undefined;
   const exercise = item ? getExercise(item.step.exerciseId) : undefined;
@@ -68,7 +70,20 @@ export function WorkoutPlayer() {
     if (!item) return;
     setReps(lastReps[item.step.exerciseId] ?? parseRepTarget(item.step.reps));
     setWeight(lastWeights[item.step.exerciseId] ?? 0);
+    setWorkRunning(false);
+    setWorkLeft(parseRepTarget(item.step.reps));
   }, [item, lastReps, lastWeights]);
+
+  useEffect(() => {
+    if (!workRunning || workLeft === null) return;
+    if (workLeft <= 0) {
+      buzz();
+      setWorkRunning(false);
+      return;
+    }
+    const id = window.setTimeout(() => setWorkLeft((n) => (n ?? 1) - 1), 1000);
+    return () => window.clearTimeout(id);
+  }, [workRunning, workLeft]);
 
   const completeSet = (skipped = false) => {
     if (!item || !exercise || !active) return;
@@ -133,12 +148,13 @@ export function WorkoutPlayer() {
     item.phase === "warmup" ? "Warmup" : item.phase === "cooldown" ? "Cooldown" : (item.blockTitle ?? "Work");
   const pct = Math.round((active.itemIndex / items.length) * 100);
   const nextItem = items[active.itemIndex + 1];
+  const timed = exercise.kind === "time" || exercise.kind === "hold";
 
   return (
     <div className="player">
       <div className="spread">
         <button
-          className="btn-quiet"
+          className="chip"
           onClick={() => {
             if (confirm("Leave this workout?")) {
               abandon();
@@ -152,93 +168,116 @@ export function WorkoutPlayer() {
           {active.itemIndex + 1}/{items.length}
         </span>
       </div>
-      <div className="progress-bar" style={{ margin: "10px 0 18px" }}>
+      <div className="progress-bar" style={{ margin: "10px 0 12px" }}>
         <span style={{ width: `${pct}%` }} />
       </div>
-      <p className="kicker">{phaseLabel}</p>
-      {item.blockSubtitle && item.setNumber === 1 ? (
-        <p className="tiny muted">{item.blockSubtitle}</p>
-      ) : null}
-      <h1 className="exercise-name" style={{ marginTop: 8 }}>
-        {exercise.name}
-      </h1>
-      <p className="lede" style={{ marginTop: 8 }}>
-        Set {item.setNumber} of {item.totalSets} · {item.step.reps}
-      </p>
-      <p className="tiny muted" style={{ marginTop: 6 }}>
-        {exercise.where}
-      </p>
-      {item.step.intensity ? (
-        <p className="tiny" style={{ marginTop: 10 }}>
-          {item.step.intensity}
-        </p>
-      ) : null}
-
-      <div className="card" style={{ marginTop: 18 }}>
-        <div className="spread">
-          <span className="tiny muted">Reps</span>
-          <span className="tiny muted">Target {item.step.reps}</span>
-        </div>
-        <div className="stepper" style={{ marginTop: 8 }}>
-          <button onClick={() => setReps((n) => Math.max(0, n - 1))}>−</button>
-          <input
-            inputMode="numeric"
-            value={reps}
-            onChange={(e) => setReps(Number(e.target.value) || 0)}
-          />
-          <button onClick={() => setReps((n) => n + 1)}>+</button>
-        </div>
-        {item.phase === "work" ? (
-          <>
-            <div className="spread" style={{ marginTop: 14 }}>
-              <span className="tiny muted">Weight ({units})</span>
-              <span className="tiny muted">0 = bodyweight</span>
-            </div>
-            <div className="stepper" style={{ marginTop: 8 }}>
-              <button onClick={() => setWeight((n) => Math.max(0, n - 2.5))}>−</button>
-              <input
-                inputMode="decimal"
-                value={weight}
-                onChange={(e) => setWeight(Number(e.target.value) || 0)}
-              />
-              <button onClick={() => setWeight((n) => n + 2.5)}>+</button>
-            </div>
-          </>
+      <div className="player-body">
+        <p className="kicker">{phaseLabel}</p>
+        {item.blockSubtitle && item.setNumber === 1 ? (
+          <p className="tiny muted">{item.blockSubtitle}</p>
         ) : null}
+        <h1 className="exercise-name" style={{ marginTop: 8 }}>
+          {exercise.name}
+        </h1>
+        <p className="lede" style={{ marginTop: 8 }}>
+          Set {item.setNumber} of {item.totalSets} · {item.step.reps}
+        </p>
+        <p className="tiny muted" style={{ marginTop: 6 }}>
+          {exercise.where}
+        </p>
+        {item.step.intensity ? (
+          <p className="tiny" style={{ marginTop: 10 }}>
+            {item.step.intensity}
+          </p>
+        ) : null}
+
+        <div className="card" style={{ marginTop: 18 }}>
+          {timed ? (
+            <>
+              <p className="tiny muted">{exercise.kind === "hold" ? "Hold" : "Work timer"}</p>
+              <div className="set-big" style={{ textAlign: "center" }}>
+                {formatClock(workLeft ?? parseRepTarget(item.step.reps))}
+              </div>
+              <button
+                className="btn btn-honey btn-block"
+                style={{ marginTop: 8 }}
+                onClick={() => {
+                  setWorkLeft(parseRepTarget(item.step.reps));
+                  setWorkRunning(true);
+                }}
+              >
+                {workRunning ? "Restart timer" : `Start ${item.step.reps}`}
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="spread">
+                <span className="tiny muted">Reps</span>
+                <span className="tiny muted">Target {item.step.reps}</span>
+              </div>
+              <div className="stepper" style={{ marginTop: 8 }}>
+                <button onClick={() => setReps((n) => Math.max(0, n - 1))}>−</button>
+                <input
+                  inputMode="numeric"
+                  value={reps}
+                  onChange={(e) => setReps(Number(e.target.value) || 0)}
+                />
+                <button onClick={() => setReps((n) => n + 1)}>+</button>
+              </div>
+            </>
+          )}
+          {item.phase === "work" && !timed ? (
+            <>
+              <div className="spread" style={{ marginTop: 14 }}>
+                <span className="tiny muted">Weight ({units})</span>
+                <span className="tiny muted">0 = bodyweight</span>
+              </div>
+              <div className="stepper" style={{ marginTop: 8 }}>
+                <button onClick={() => setWeight((n) => Math.max(0, n - 2.5))}>−</button>
+                <input
+                  inputMode="decimal"
+                  value={weight}
+                  onChange={(e) => setWeight(Number(e.target.value) || 0)}
+                />
+                <button onClick={() => setWeight((n) => n + 2.5)}>+</button>
+              </div>
+            </>
+          ) : null}
+        </div>
+
+        <details className="details" style={{ marginTop: 12 }} key={item.key}>
+          <summary>How to do this</summary>
+          <p className="tiny muted">Setup</p>
+          <ul className="how">
+            {exercise.setup.map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ul>
+          <p className="tiny muted">How</p>
+          <ol className="how">
+            {exercise.how.map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ol>
+          <p className="tiny muted">Cues</p>
+          <ul className="how">
+            {exercise.cues.map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ul>
+          {item.step.notes ? <p className="tiny">{item.step.notes}</p> : null}
+          <p className="tiny muted" style={{ marginTop: 8 }}>
+            Swap
+          </p>
+          {exercise.substitutions.slice(0, 3).map((sid) => (
+            <Link key={sid} to={`/library/${sid}`} className="tiny" style={{ display: "block", marginTop: 4 }}>
+              {getExercise(sid).name}
+            </Link>
+          ))}
+        </details>
       </div>
 
-      <details className="details" style={{ marginTop: 12 }}>
-        <summary>How to do this</summary>
-        <p className="tiny muted">Setup</p>
-        <ul className="how">
-          {exercise.setup.map((s) => (
-            <li key={s}>{s}</li>
-          ))}
-        </ul>
-        <p className="tiny muted">How</p>
-        <ol className="how">
-          {exercise.how.map((s) => (
-            <li key={s}>{s}</li>
-          ))}
-        </ol>
-        <p className="tiny muted">Cues</p>
-        <ul className="how">
-          {exercise.cues.map((s) => (
-            <li key={s}>{s}</li>
-          ))}
-        </ul>
-        {item.step.notes ? <p className="tiny">{item.step.notes}</p> : null}
-        <p className="tiny muted" style={{ marginTop: 8 }}>
-          Swap
-        </p>
-        {exercise.substitutions.slice(0, 3).map((sid) => (
-          <Link key={sid} to={`/library/${sid}`} className="tiny" style={{ display: "block", marginTop: 4 }}>
-            {getExercise(sid).name}
-          </Link>
-        ))}
-      </details>
-
-      <div style={{ marginTop: "auto", display: "grid", gap: 8, paddingTop: 16 }}>
+      <div className="player-actions">
         <button className="btn btn-primary btn-block" onClick={() => completeSet(false)}>
           {item.isLastSet ? "Finish move" : "Log set"}
         </button>

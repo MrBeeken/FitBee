@@ -61,13 +61,19 @@ export function Settings() {
       <div>
         <p className="tiny muted">Experience</p>
         <div className="chips" style={{ marginTop: 8 }}>
-          {(["beginner", "returning", "comfortable"] as const).map((id) => (
+          {(
+            [
+              ["beginner", "Starting fresh"],
+              ["returning", "Coming back"],
+              ["comfortable", "Comfortable"],
+            ] as const
+          ).map(([id, label]) => (
             <button
               key={id}
               className={`chip ${profile.level === id ? "chip-on" : ""}`}
               onClick={() => update({ level: id })}
             >
-              {id}
+              {label}
             </button>
           ))}
         </div>
@@ -75,13 +81,19 @@ export function Settings() {
       <div>
         <p className="tiny muted">Usual place</p>
         <div className="chips" style={{ marginTop: 8 }}>
-          {(["home", "gym", "both"] as const).map((id) => (
+          {(
+            [
+              ["home", "Home"],
+              ["gym", "Gym"],
+              ["both", "Both"],
+            ] as const
+          ).map(([id, label]) => (
             <button
               key={id}
               className={`chip ${profile.location === id ? "chip-on" : ""}`}
               onClick={() => update({ location: id })}
             >
-              {id}
+              {label}
             </button>
           ))}
         </div>

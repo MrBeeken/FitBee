@@ -62,6 +62,9 @@ export function WorkoutPreview() {
           for you.
         </p>
       </section>
+      <button className="btn btn-primary btn-block" onClick={start}>
+        {planned.isRest ? "Start the restore session" : "Let's go"}
+      </button>
       <section className="card">
         <p className="tiny muted">Before you start</p>
         <div className="stack" style={{ marginTop: 10 }}>
